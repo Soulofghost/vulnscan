@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  vulnscan:
+    build: .
+    container_name: vulnscan-engine
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - VULNSCAN_DB=/app/data/vulnscan.db
+    volumes:
+      - vuln_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  vuln_data:

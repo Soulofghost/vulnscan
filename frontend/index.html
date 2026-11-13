@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VulnScan — Authorized Asset Risk &amp; Vulnerability Assessment</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="vuln-app">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="shield-badge">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>VULNSCAN <span class="badge-sub">CVSS v3.1 AUDITOR</span></h1>
+          <p class="brand-caption">AUTHORIZED ASSET RISK ENGINE &amp; REMEDIATION WORKFLOWS</p>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="compliance-tag">
+          <span class="compliance-dot"></span>
+          <span>COMPLIANCE: AUTHORIZED AUDITING ONLY</span>
+        </div>
+        <button id="refreshDataBtn" class="btn btn-secondary">Sync Data</button>
+      </div>
+    </header>
+
+    <!-- Posture Metric Strip -->
+    <section class="posture-strip">
+      <div class="metric-card">
+        <span class="m-label">MONITORED ASSETS</span>
+        <span class="m-value" id="statAssets">0</span>
+        <span class="m-sub">Target IP Inventory</span>
+      </div>
+      <div class="metric-card">
+        <span class="m-label">DETECTED FINDINGS</span>
+        <span class="m-value" id="statTotalFindings">0</span>
+        <span class="m-sub">Total Active &amp; Patched</span>
+      </div>
+      <div class="metric-card m-crit">
+        <span class="m-label">CRITICAL CVSS (>9.0)</span>
+        <span class="m-value text-crit" id="statCritical">0</span>
+        <span class="m-sub">Immediate Action Required</span>
+      </div>
+      <div class="metric-card m-high">
+        <span class="m-label">HIGH CVSS (7.0 - 8.9)</span>
+        <span class="m-value text-high" id="statHigh">0</span>
+        <span class="m-sub">Elevated Attack Vector</span>
+      </div>
+      <div class="metric-card m-posture">
+        <span class="m-label">FLEET POSTURE SCORE</span>
+        <div class="score-display">
+          <span class="m-value text-score" id="statPostureScore">100</span>
+          <span class="score-max">/ 100</span>
+        </div>
+        <span class="m-sub">Higher Is Stronger</span>
+      </div>
+    </section>
+
+    <!-- Main Workspace -->
+    <main class="main-layout">
+      <!-- Left Column: Asset Fleet & Scanner -->
+      <section class="col-assets">
+        <div class="box-panel">
+          <div class="panel-head">
+            <h2>Authorized Asset Inventory</h2>
+            <button class="btn btn-sm btn-outline" onclick="toggleAddAssetModal()">+ Register Asset</button>
+          </div>
+
+          <div class="asset-list" id="assetContainer">
+            <!-- Asset cards rendered here -->
+          </div>
+        </div>
+
+        <!-- Add Asset Box (Collapsible) -->
+        <div class="box-panel hidden" id="addAssetPanel">
+          <div class="panel-head">
+            <h3>Register Authorized Target</h3>
+          </div>
+          <form id="newAssetForm" class="asset-form">
+            <div class="form-row">
+              <label>Asset Name</label>
+              <input type="text" id="assetName" placeholder="e.g. core-auth-svc" required>
+            </div>
+            <div class="form-row">
+              <label>IP Address / CIDR</label>
+              <input type="text" id="assetIp" placeholder="e.g. 10.0.4.12" required>
+            </div>
+            <div class="form-cols">
+              <div class="form-row">
+                <label>Environment</label>
+                <select id="assetEnv">
+                  <option value="PROD">PROD</option>
+                  <option value="STAGING">STAGING</option>
+                  <option value="INTERNAL">INTERNAL</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Criticality</label>
+                <select id="assetCrit">
+                  <option value="CRITICAL">CRITICAL</option>
+                  <option value="HIGH" selected>HIGH</option>
+                  <option value="MEDIUM">MEDIUM</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Audited Ports (Comma-separated)</label>
+              <input type="text" id="assetPorts" placeholder="e.g. 80,443,8080,6379" value="80,443">
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" onclick="toggleAddAssetModal()">Cancel</button>
+              <button type="submit" class="btn btn-primary">Save Asset</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Right Column: Findings & CVSS Tools -->
+      <section class="col-findings">
+        <!-- Tabs -->
+        <div class="tab-strip">
+          <button class="tab-btn active" data-tab="findingsTab">Vulnerability Findings &amp; Playbooks</button>
+          <button class="tab-btn" data-tab="calculatorTab">CVSS v3.1 Live Calculator</button>
+        </div>
+
+        <!-- Tab 1: Findings -->
+        <div class="tab-content active" id="findingsTab">
+          <div class="box-panel">
+            <div class="panel-head">
+              <h2>Detected Vulnerability Findings</h2>
+              <div class="chip-filter">
+                <button class="f-chip active" data-filter="ALL">ALL</button>
+                <button class="f-chip" data-filter="CRITICAL">CRITICAL</button>
+                <button class="f-chip" data-filter="HIGH">HIGH</button>
+                <button class="f-chip" data-filter="UNREMEDIATED">UNREMEDIATED</button>
+              </div>
+            </div>
+
+            <div class="findings-scroll" id="findingsContainer">
+              <div class="empty-state">No findings recorded. Select an asset on the left and run an audit scan.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: CVSS Calculator -->
+        <div class="tab-content" id="calculatorTab">
+          <div class="box-panel">
+            <div class="panel-head">
+              <h2>FIRST CVSS v3.1 Vector Calculator</h2>
+              <span class="badge-sub">Official Specification</span>
+            </div>
+
+            <div class="calc-body">
+              <div class="calc-metrics-grid">
+                <div class="calc-field">
+                  <label>Attack Vector (AV)</label>
+                  <select id="calcAV">
+                    <option value="N" selected>Network (N) [0.85]</option>
+                    <option value="A">Adjacent Network (A) [0.62]</option>
+                    <option value="L">Local (L) [0.55]</option>
+                    <option value="P">Physical (P) [0.20]</option>
+                  </select>
+                </div>
+                <div class="calc-field">
+                  <label>Attack Complexity (AC)</label>
+                  <select id="calcAC">
+                    <option value="L" selected>Low (L) [0.77]</option>
+                    <option value="H">High (H) [0.44]</option>
+                  </select>
+                </div>
+                <div class="calc-field">
+                  <label>Privileges Required (PR)</label>
+                  <select id="calcPR">
+                    <option value="N" selected>None (N) [0.85]</option>
+                    <option value="L">Low (L) [0.62]</option>
+                    <option value="H">High (H) [0.27]</option>
+                  </select>
+                </div>
+                <div class="calc-field">
+                  <label>User Interaction (UI)</label>
+                  <select id="calcUI">
+                    <option value="N" selected>None (N) [0.85]</option>
+                    <option value="R">Required (R) [0.62]</option>
+                  </select>
+                </div>
+                <div class="calc-field">
+                  <label>Scope (S)</label>
+                  <select id="calcS">
+                    <option value="U" selected>Unchanged (U)</option>
+                    <option value="C">Changed (C)</option>
+                  </select>
+                </div>
+                <div class="calc-field">
+                  <label>Confidentiality (C)</label>
+                  <select id="calcC">
+                    <option value="H" selected>High (H) [0.56]</option>
+                    <option value="L">Low (L) [0.22]</option>
+                    <option value="N">None (N) [0.00]</option>
+                  </select>
+                </div>
+                <div class="calc-field">
+                  <label>Integrity (I)</label>
+                  <select id="calcI">
+                    <option value="H" selected>High (H) [0.56]</option>
+                    <option value="L">Low (L) [0.22]</option>
+                    <option value="N">None (N) [0.00]</option>
+                  </select>
+                </div>
+                <div class="calc-field">
+                  <label>Availability (A)</label>
+                  <select id="calcA">
+                    <option value="H" selected>High (H) [0.56]</option>
+                    <option value="L">Low (L) [0.22]</option>
+                    <option value="N">None (N) [0.00]</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="calc-result-box">
+                <div class="calc-score-display">
+                  <span class="calc-score-val" id="calcScoreVal">9.8</span>
+                  <span class="calc-sev-badge" id="calcSevBadge">CRITICAL</span>
+                </div>
+                <div class="calc-vector-string" id="calcVectorString">
+                  CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
+                </div>
+                <div class="calc-details">
+                  <span>Impact Sub-score: <strong id="calcImpactVal">5.9</strong></span>
+                  <span>Exploitability Sub-score: <strong id="calcExploitVal">3.9</strong></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
